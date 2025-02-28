@@ -1,145 +1,212 @@
 import React, { useEffect, useState } from "react";
-import { CogIcon, PaperClipIcon } from "@heroicons/react/20/solid"; // Import Heroicons paperclip icon
+import {
+  ArrowTrendingDownIcon,
+  BookOpenIcon,
+  CogIcon,
+  PaperClipIcon,
+  PencilIcon,
+  PencilSquareIcon,
+  PlusCircleIcon,
+  PlusIcon,
+} from "@heroicons/react/20/solid";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
 
 const ChatScreen = () => {
-  const [message, setMessage] = useState(""); // Create a state for message
-  const [file, setFile] = useState(null); // Create a state for file
+  const [message, setMessage] = useState("");
+  const [file, setFile] = useState(null);
   const navigate = useNavigate();
-  const handleMessage = (e) => setMessage(e.target.value); // Create a function to handle message change
-  const handleFile = (e) => setFile(e.target.files[0]); // Create a function to handle file upload
-  const username = localStorage.getItem("username");
   const [currentChat, setCurrentChat] = useState(null);
-  const [chatData,setChatData]=useState(null)
-  // const loadUserChats = () => {
-  //   const chats = localStorage.getItem("chats");
-  //   const userChats = JSON.parse(chats)?.filter(
-  //     (chat) => chat.username === username
-  //   );
-  //   setMyChats(userChats);
-  // };
-  // useEffect(() => {
-  //   loadUserChats();
-  // }, []);
-  const handleChat = async (e) => {
-    e.preventDefault();
-    if (!currentChat) {
-      const existingChats = JSON.parse(localStorage.getItem("chats")) || [];
-      const chatId = uuidv4();
-      setCurrentChat(chatId); // This is async - use chatId for immediate reference
-      
-      // Create new chat structure
-      const newChat = { 
-        id: chatId, 
-        interactions:[],
-        username 
-      };
-      
-      // Update local storage immediately
-      const updatedChats = [...existingChats, newChat];
-      localStorage.setItem("chats", JSON.stringify(updatedChats));
-  
-      try {
-        // Send request to backend
-        const resp = await axios.post(
-          "/chat/test-azure/",
-          { search_query: message },
-          { headers: { Authorization: `Token ${localStorage.getItem("token")}` } }
-        );
-  
-        // Get fresh copy of chats from localStorage
-        const latestChats = JSON.parse(localStorage.getItem("chats")) || [];
-        const currentChatEntry = latestChats.find(chat => chat.id === chatId);
-  
-        if (currentChatEntry) {
-          // Update message order: user first, then assistant
-          // currentChatEntry.user.push(message);
-          currentChatEntry.interactions.push({user:message,assistant:resp.data.response.message});
-          localStorage.setItem("chats", JSON.stringify(latestChats));
-        } else {
-          console.error("New chat not found in localStorage");
-          // Optional: Handle missing chat scenario
-        }
-      } catch (error) {
-        console.error("API call failed:", error);
-        // Optional: Clean up failed chat creation
-        const filteredChats = existingChats.filter(chat => chat.id !== chatId);
-        localStorage.setItem("chats", JSON.stringify(filteredChats));
-        // setCurrentChat(null);
-      }
-    }
-  };
+  const [chatData, setChatData] = useState(null);
+  const [isSending, setIsSending] = useState(false);
+  const [myChats, setMyChats] = useState([]);
+  const username = localStorage.getItem("username");
+
   useEffect(() => {
     if (!localStorage.getItem("token")) {
-      return navigate("/login");
+      navigate("/login");
     }
+    loadUserChats();
   }, [navigate]);
-  useEffect(()=>{
-    setChatData(JSON.parse(localStorage.getItem('chats'))?.find(chat=>chat.id=currentChat))
-  },[currentChat])
+
+  useEffect(() => {
+    setChatData(myChats.find((chat) => chat.id === currentChat));
+  }, [currentChat]);
+
+  const loadUserChats = () => {
+    const chats = JSON.parse(localStorage.getItem("chats")) || [];
+    setMyChats(chats.filter((chat) => chat.username === username));
+  };
+
+  const handleChat = async (e) => {
+    e.preventDefault();
+    if (isSending || !message.trim()) return;
+
+    setIsSending(true);
+    const newMessage = message.trim();
+    setMessage("");
+
+    let chatId = currentChat;
+    let existingChats = JSON.parse(localStorage.getItem("chats")) || [];
+    let chatEntry;
+
+    if (!chatId) {
+      chatId = uuidv4();
+      setCurrentChat(chatId);
+      chatEntry = { id: chatId, interactions: [], username, date:new Date() };
+      existingChats.push(chatEntry);
+    } else {
+      chatEntry = existingChats.find((chat) => chat.id === chatId);
+    }
+
+    const interactionId = uuidv4();
+    chatEntry.interactions.push({
+      id: interactionId,
+      user: newMessage,
+      assistant: null,
+      isPending: true,
+    });
+
+    localStorage.setItem("chats", JSON.stringify(existingChats));
+    setChatData({ ...chatEntry });
+
+    try {
+      const resp = await axios.post(
+        "/chat/test-azure/",
+        { search_query: newMessage },
+        { headers: { Authorization: `Token ${localStorage.getItem("token")}` } }
+      );
+
+      const updatedChats = JSON.parse(localStorage.getItem("chats")) || [];
+      const updatedChat = updatedChats.find((chat) => chat.id === chatId);
+      const interaction = updatedChat.interactions.find(
+        (i) => i.id === interactionId
+      );
+
+      if (interaction) {
+        interaction.assistant = resp.data.response.message;
+        interaction.isPending = false;
+        localStorage.setItem("chats", JSON.stringify(updatedChats));
+        setChatData({ ...updatedChat });
+      }
+    } catch (error) {
+      const updatedChats = JSON.parse(localStorage.getItem("chats")) || [];
+      const updatedChat = updatedChats.find((chat) => chat.id === chatId);
+      updatedChat.interactions = updatedChat.interactions.filter(
+        (i) => i.id !== interactionId
+      );
+      localStorage.setItem("chats", JSON.stringify(updatedChats));
+      setChatData({ ...updatedChat });
+      console.error("API call failed:", error);
+    } finally {
+      setIsSending(false);
+    }
+  };
+  const handleNewChat=()=>{
+
+  }
 
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
       <div className="w-1/4 bg-white p-4 border-r border-gray-200">
-        <h2 className="text-xl font-semibold mb-4">Search History</h2>
-        <div className="mb-4 p-4 bg-blue-200 rounded shadow">
-          <h3 className="font-semibold">Chat 1</h3>
-          <p>Content of Chat 1</p>
+        <div className="flex justify-between items-center w-full mb-2">
+          <h2 className="text-xl font-semibold mb-4">Search History</h2>
+          <button className="flex items-center py-2 px-4 text-sm bg-orange text-white rounded  transition" onClick={handleNewChat}>
+            <PencilSquareIcon />
+            <span className="ml-2">New Chat</span>
+          </button>
         </div>
-        <div className="mb-4 p-4 bg-blue-200 rounded shadow">
-          <h3 className="font-semibold">Chat 2</h3>
-          <p>Content of Chat 2</p>
-        </div>
-        <div className="mb-4 p-4 bg-blue-200 rounded shadow">
-          <h3 className="font-semibold">Chat 3</h3>
-          <p>Content of Chat 3</p>
-        </div>
+        {myChats.map((chat) => (
+          <div
+            key={chat.id}
+            className={`mb-4 p-4 bg-blue-100 rounded-lg shadow-sm cursor-pointer hover:bg-blue-50 ${
+              chat.id === currentChat ? "ring-2 ring-blue-500" : ""
+            }`}
+            onClick={() => setCurrentChat(chat.id)}
+          >
+            <h3 className="font-semibold text-gray-700">
+              {chat.date.toString().split('T')[0]}
+            </h3>
+            <p className="text-sm text-gray-500 truncate">
+              {chat.interactions[0]?.user || "New chat"}
+            </p>
+          </div>
+        ))}
       </div>
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
-        {/* Top Navigation */}
         <div className="flex items-center justify-between bg-gray-800 text-white p-4">
-          <h1 className="text-2xl">Chat Application</h1>
+          <h1 className="text-2xl font-bold">AI Assistant</h1>
           <div className="flex items-center space-x-4">
-            <span>{username}</span>
-            <CogIcon className="h-6 w-6 cursor-pointer" />
+            <span className="text-sm font-medium">{username}</span>
+            <CogIcon className="h-6 w-6 cursor-pointer hover:text-gray-300" />
           </div>
         </div>
 
-        <div className="flex-1 p-4 overflow-y-auto">
-          <div className="mb-4">
-            {
-              chatData?.interactions.map((chat)=>(
-                <div>
-                  <div>{chat?.user}</div>
-                  <div>{chat.assistant}</div>
+        <div className="flex-1 p-4 overflow-y-auto space-y-4">
+          {chatData?.interactions.map((interaction) => (
+            <div key={interaction.id} className="space-y-4">
+              {/* User Message */}
+              <div className="flex justify-end">
+                <div className="bg-orange text-white rounded-lg p-3 max-w-3xl shadow-md">
+                  {interaction.user}
                 </div>
-              ))
-            }
-          </div>
+              </div>
+
+              {/* Assistant Response */}
+              {interaction.assistant ? (
+                <div className="flex justify-start">
+                  <div className="bg-gray-100 rounded-lg p-3 max-w-3xl shadow-md text-gray-800">
+                    {interaction.assistant}
+                  </div>
+                </div>
+              ) : interaction.isPending ? (
+                <div className="flex justify-start">
+                  <div className="bg-gray-100 rounded-lg p-3 max-w-3xl shadow-md">
+                    <div className="flex space-x-2 items-center">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-100"></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200"></div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ))}
         </div>
+
+        {/* Input Area */}
         <div className="p-4 bg-white border-t border-gray-200">
           <div className="flex space-x-2 items-center">
             <input
               type="text"
-              placeholder="Type a message..."
-              className="flex-1 p-2 border border-gray-300 rounded mb-2"
+              placeholder="Type your message..."
+              className="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange"
               value={message}
-              onChange={handleMessage}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && handleChat(e)}
             />
-            <label className="cursor-pointer">
+            <label className="cursor-pointer p-2 hover:bg-gray-100 rounded-lg">
               <PaperClipIcon className="h-6 w-6 text-gray-500" />
-              <input type="file" className="hidden" onChange={handleFile} />
+              <input
+                type="file"
+                className="hidden"
+                onChange={(e) => setFile(e.target.files[0])}
+              />
             </label>
             <button
-              className="bg-orange text-white px-6 py-2 rounded"
+              className={`px-6 py-3 rounded-lg font-medium ${
+                isSending
+                  ? "bg-orange cursor-not-allowed"
+                  : "bg-orange hover:bg-orange"
+              } text-white transition-colors`}
               onClick={handleChat}
+              disabled={isSending}
             >
-              Send
+              {isSending ? "Sending..." : "Send"}
             </button>
           </div>
         </div>
