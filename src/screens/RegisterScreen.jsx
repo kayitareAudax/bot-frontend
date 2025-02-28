@@ -1,3 +1,4 @@
+import axios from 'axios'
 import React,{useState} from 'react'
 
 const RegisterScreen = () => {
@@ -11,11 +12,17 @@ const RegisterScreen = () => {
     const handlePasswordChange=(e)=>setPassword(e.target.value)
     const handleFullNameChange=(e)=>setFullName(e.target.value)
     const handleComfirmPaswordChange=(e)=>setComfirmPassword(e.target.value)
-    const handleSubmit=(e)=>{
+    const handleSubmit=async(e)=>{
         e.preventDefault();
-        setLoading(true)
-        console.log(email,password)
-        setLoading(false)}
+        // setLoading(true)
+        if (password !== comfirmPassword) {
+          alert('Passwords do not match')
+          return
+        }
+        const resp=await axios.post('user/register',{email,password,fullName,comfirmPassword})
+        console.log(resp.data);
+        // setLoading(false)
+      }
   return (
     <div className="flex min-h-full flex-1 flex-col justify-center py-12 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -30,16 +37,16 @@ const RegisterScreen = () => {
             <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
                 <label
-                  htmlFor="password"
+                  htmlFor="name"
                   className="block text-sm font-medium leading-6 text-gray-900"
                 >
                   Full Name
                 </label>
                 <div className="mt-2">
                   <input
-                    id="password"
-                    name="password"
-                    type="password"
+                    id="name"
+                    name="name"
+                    type="text"
                     autoComplete="current-password"
                     required
                     value={fullName}
@@ -146,18 +153,18 @@ const RegisterScreen = () => {
                           d="M4 12a8 8 0 018-8V1.5"
                         ></path>
                       </svg>
-                      Sign In...
+                      Sign Up
                     </div>
                   ) : (
-                    "Sign in"
+                    "Sign Up"
                   )}
                 </button>
               </div>
               <div className="justify-center align-center items-center">
                 <p className="text-center">
-                  Don't have an account?
+                  Already have an account?
                   <a href="/register">
-                    <span className="text-secondary font-bold ml-2">Sign up</span>
+                    <span className="text-secondary font-bold ml-2">Sign In</span>
                   </a>
                 </p>
               </div>

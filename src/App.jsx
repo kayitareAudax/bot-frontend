@@ -6,9 +6,10 @@ import { BrowserRouter,Route,Routes } from 'react-router-dom'
 import ChatScreen from './screens/ChatScreen'
 import LoginScreen from './screens/LoginScreen'
 import RegisterScreen from './screens/RegisterScreen'
+import axios from 'axios'
 
 function App() {
-
+  axios.defaults.baseURL = 'http://localhost:8000'
   return (
     <BrowserRouter>
       <Routes>

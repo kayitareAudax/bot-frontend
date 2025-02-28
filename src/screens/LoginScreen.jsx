@@ -1,16 +1,31 @@
+import axios from 'axios'
 import React,{useState} from 'react'
+import { useNavigate } from 'react-router-dom'
 
 const LoginScreen = () => {
-    const [email, setEmail] = useState('')
+    const [username, setUsername] = useState('')
+    // const navigate=useNavigate()
     const [password, setPassword] = useState('')
     const [loading, setLoading] = useState(false)
-    const handleEmailChange=(e)=>setEmail(e.target.value)
+    const navigate=useNavigate()
+    const handleUsernameChange=(e)=>setUsername(e.target.value)
     const handlePasswordChange=(e)=>setPassword(e.target.value)
-    const handleSubmit=(e)=>{
+    const handleSubmit=async(e)=>{
         e.preventDefault();
-        setLoading(true)
-        console.log(email,password)
-        setLoading(false)}
+        try {
+          const resp=await axios.post('users/login/',{username,password})
+          console.log(resp.data);    
+          if(resp.data.success){
+            localStorage.setItem('token',resp.data.message)
+            localStorage.setItem('username',resp.data.username)
+           return navigate('/')
+          }
+          
+        } catch (error) {
+          console.log(error);
+          
+        }
+      }
   return (
     <div className="flex min-h-full flex-1 flex-col justify-center py-12 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -25,20 +40,20 @@ const LoginScreen = () => {
             <form className="space-y-6" onSubmit={handleSubmit}>
               <div>
                 <label
-                  htmlFor="email"
+                  htmlFor="username"
                   className="block text-sm font-medium leading-6 text-gray-900"
                 >
-                  Email address
+                  username
                 </label>
                 <div className="mt-2">
                   <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
+                    id="username"
+                    name="username"
+                    type="text"
+                    autoComplete="username"
                     required
-                    value={email}
-                    onChange={handleEmailChange}
+                    value={username}
+                    onChange={handleUsernameChange}
                     className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                   />
                 </div>
