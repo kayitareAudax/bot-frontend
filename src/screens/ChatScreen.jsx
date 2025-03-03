@@ -38,7 +38,7 @@ const ChatScreen = () => {
     const chats = JSON.parse(localStorage.getItem("chats")) || [];
     setMyChats(chats.filter((chat) => chat.username === username));
   };
-
+  
   const handleChat = async (e) => {
     e.preventDefault();
     if (isSending || !message.trim()) return;
@@ -54,7 +54,7 @@ const ChatScreen = () => {
     if (!chatId) {
       chatId = uuidv4();
       setCurrentChat(chatId);
-      chatEntry = { id: chatId, interactions: [], username, date:new Date() };
+      chatEntry = { id: chatId, interactions: [],pdf:file.name, username, date: new Date() };
       existingChats.push(chatEntry);
     } else {
       chatEntry = existingChats.find((chat) => chat.id === chatId);
@@ -70,11 +70,10 @@ const ChatScreen = () => {
 
     localStorage.setItem("chats", JSON.stringify(existingChats));
     setChatData({ ...chatEntry });
-
     try {
       const resp = await axios.post(
         "/chat/test-azure/",
-        { search_query: newMessage },
+        { search_query: newMessage,pdf_name:file.name, conversation_history:chatEntry.interactions },
         { headers: { Authorization: `Token ${localStorage.getItem("token")}` } }
       );
 
@@ -103,17 +102,25 @@ const ChatScreen = () => {
       setIsSending(false);
     }
   };
-  const handleNewChat=()=>{
-
+  const handleNewChat = async() => {
+    setCurrentChat(null);
+    setChatData(null);
+  };
+  const handleFileUpload = async(file) => {
+    setFile(file)
+    const resp=await axios.post("/chat/file-upload/",{file},{headers:{Authorization:`Token ${localStorage.getItem("token")}`,"Content-Type":"multipart/form-data"}});
+    console.log(resp.data);
   }
-
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
       <div className="w-1/4 bg-white p-4 border-r border-gray-200">
         <div className="flex justify-between items-center w-full mb-2">
           <h2 className="text-xl font-semibold mb-4">Search History</h2>
-          <button className="flex items-center py-2 px-4 text-sm bg-orange text-white rounded  transition" onClick={handleNewChat}>
+          <button
+            className="flex items-center py-2 px-4 text-sm bg-orange text-white rounded  transition"
+            onClick={handleNewChat}
+          >
             <PencilSquareIcon />
             <span className="ml-2">New Chat</span>
           </button>
@@ -127,7 +134,7 @@ const ChatScreen = () => {
             onClick={() => setCurrentChat(chat.id)}
           >
             <h3 className="font-semibold text-gray-700">
-              {chat.date.toString().split('T')[0]}
+              {chat.date.toString().split("T")[0]}
             </h3>
             <p className="text-sm text-gray-500 truncate">
               {chat.interactions[0]?.user || "New chat"}
@@ -147,35 +154,51 @@ const ChatScreen = () => {
         </div>
 
         <div className="flex-1 p-4 overflow-y-auto space-y-4">
-          {chatData?.interactions.map((interaction) => (
-            <div key={interaction.id} className="space-y-4">
-              {/* User Message */}
-              <div className="flex justify-end">
-                <div className="bg-orange text-white rounded-lg p-3 max-w-3xl shadow-md">
-                  {interaction.user}
-                </div>
-              </div>
-
-              {/* Assistant Response */}
-              {interaction.assistant ? (
-                <div className="flex justify-start">
-                  <div className="bg-gray-100 rounded-lg p-3 max-w-3xl shadow-md text-gray-800">
-                    {interaction.assistant}
+          {!currentChat ? (
+            <div className="flex items-center justify-center h-full">
+              <label className="flex flex-col items-center p-8 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-orange-500 transition-colors">
+                <PaperClipIcon className="h-12 w-12 text-gray-500 mb-4" />
+                <span className="text-gray-700 font-medium">
+                  Upload a file to start a new chat
+                </span>
+                <input
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => handleFileUpload(e.target.files[0])}
+                />
+              </label>
+            </div>
+          ) : (
+            chatData?.interactions.map((interaction) => (
+              <div key={interaction.id} className="space-y-4">
+                {/* User Message */}
+                <div className="flex justify-end">
+                  <div className="bg-orange text-white rounded-lg p-3 max-w-3xl shadow-md">
+                    {interaction.user}
                   </div>
                 </div>
-              ) : interaction.isPending ? (
-                <div className="flex justify-start">
-                  <div className="bg-gray-100 rounded-lg p-3 max-w-3xl shadow-md">
-                    <div className="flex space-x-2 items-center">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-100"></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200"></div>
+
+                {/* Assistant Response */}
+                {interaction.assistant ? (
+                  <div className="flex justify-start">
+                    <div className="bg-gray-100 rounded-lg p-3 max-w-3xl shadow-md text-gray-800">
+                      {interaction.assistant}
                     </div>
                   </div>
-                </div>
-              ) : null}
-            </div>
-          ))}
+                ) : interaction.isPending ? (
+                  <div className="flex justify-start">
+                    <div className="bg-gray-100 rounded-lg p-3 max-w-3xl shadow-md">
+                      <div className="flex space-x-2 items-center">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-100"></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200"></div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ))
+          )}
         </div>
 
         {/* Input Area */}
@@ -189,22 +212,14 @@ const ChatScreen = () => {
               onChange={(e) => setMessage(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && handleChat(e)}
             />
-            <label className="cursor-pointer p-2 hover:bg-gray-100 rounded-lg">
-              <PaperClipIcon className="h-6 w-6 text-gray-500" />
-              <input
-                type="file"
-                className="hidden"
-                onChange={(e) => setFile(e.target.files[0])}
-              />
-            </label>
             <button
-              className={`px-6 py-3 rounded-lg font-medium ${
+              className={`px-6 py-3 rounded-lg font-medium disabled:cursor-not-allowed ${
                 isSending
                   ? "bg-orange cursor-not-allowed"
                   : "bg-orange hover:bg-orange"
               } text-white transition-colors`}
               onClick={handleChat}
-              disabled={isSending}
+              disabled={isSending || (!file)}
             >
               {isSending ? "Sending..." : "Send"}
             </button>
