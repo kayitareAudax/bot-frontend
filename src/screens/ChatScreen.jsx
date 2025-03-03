@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState,useRef } from "react";
 import {
   ArrowTrendingDownIcon,
   BookOpenIcon,
@@ -12,6 +12,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
+import {ToastContainer,toast} from 'react-toastify'
 
 const ChatScreen = () => {
   const [message, setMessage] = useState("");
@@ -22,7 +23,7 @@ const ChatScreen = () => {
   const [isSending, setIsSending] = useState(false);
   const [myChats, setMyChats] = useState([]);
   const username = localStorage.getItem("username");
-
+  const [isFileUploading, setIsFileUploading] = useState(false);
   useEffect(() => {
     if (!localStorage.getItem("token")) {
       navigate("/login");
@@ -107,12 +108,22 @@ const ChatScreen = () => {
     setChatData(null);
   };
   const handleFileUpload = async(file) => {
-    setFile(file)
-    const resp=await axios.post("/chat/file-upload/",{file},{headers:{Authorization:`Token ${localStorage.getItem("token")}`,"Content-Type":"multipart/form-data"}});
-    console.log(resp.data);
+    try {
+      setIsFileUploading(true);
+      setFile(file)
+      const resp=await axios.post("/chat/file-upload/",{file},{headers:{Authorization:`Token ${localStorage.getItem("token")}`,"Content-Type":"multipart/form-data"}});
+      console.log(resp.data);
+      toast("File uploaded successfully")
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      setIsFileUploading(false);
+    }
+    finally{
+      setIsFileUploading(false);}
   }
   return (
     <div className="flex h-screen bg-gray-100">
+      <ToastContainer/>
       {/* Sidebar */}
       <div className="w-1/4 bg-white p-4 border-r border-gray-200">
         <div className="flex justify-between items-center w-full mb-2">
